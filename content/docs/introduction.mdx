@@ -7,8 +7,8 @@ tags: ["discord.py 2.x", "Foundation", "Python", "modern-discord-api"]
 ---
 
 <Callout title="Credits and source posture">
-  This lesson is part of Discord.py Components V2 Guide, created for Adhi (@itzaqdhi). It teaches modern Discord API
-  practices only and treats outdated snippets as migration examples, not as recommended code.
+  This lesson is part of Discord.py Components V2 Guide, made by @itzadhi. It teaches modern Discord API practices only
+  and treats outdated snippets as migration examples, not as recommended code.
 </Callout>
 
 ## 1. What Is It?
@@ -115,6 +115,16 @@ async def handle_production_action(interaction: discord.Interaction) -> None:
 ```
 
 Large bots use this shape because one slow database call, one missing permission check, or one reused custom ID can break thousands of interactions.
+
+### Function-by-function walkthrough
+
+This table explains the functions, classes, methods, and helpers that appear throughout the examples. Read it like a map: the name tells you what you call, the middle column explains what it does, and the last column explains how production bots should think about it.
+
+<ReferenceTable
+  data={
+    '{"headers":["Function or API","What it does","How to use it safely"],"rows":[["async def","Defines a coroutine that can pause while waiting for Discord, a database, or an API.","Use async callbacks for bot work so the event loop stays responsive."],["await","Pauses the current coroutine until the awaited operation finishes.","Use it for Discord calls and async database drivers instead of blocking code."],["commands.Bot","Creates the main bot client and owns events, commands, cogs, views, and the command tree.","Keep startup registration in setup_hook when possible."],["setup_hook","Runs async startup work before the bot is fully ready.","Register cogs, persistent views, and sync logic here."],["add_cog","Attaches a Cog so its commands and listeners become part of the bot.","Use cogs to keep feature areas separate."],["add_view","Registers a persistent View so old component messages still route after restart.","Required for restart-safe verification, ticket, and dashboard buttons."],["tree.sync","Uploads app_commands to Discord.","Use dev guild sync while building and planned global sync for releases."],["app_commands.command","Declares a Discord-native slash command.","Prefer it over prefix-first command UX for modern bots."],["discord.Interaction","Represents a command, component click, select choice, or modal submission.","Read user, guild, channel, permissions, and response helpers from it."],["interaction.response.send_message","Sends the first interaction response.","Use ephemeral=True for user-specific setup, errors, or confirmations."],["interaction.response.defer","Acknowledges slow work before you produce the final answer.","Use this before API calls, database writes, or long validation."],["interaction.followup.send","Sends a message after a deferred response.","Use it after defer, not before the interaction is acknowledged."],["discord.ui.View","Owns buttons and selects and routes callbacks.","Use timeout=None and stable custom_id values for persistent views."],["discord.ui.button","Declares a button and binds it to a callback method.","The callback still needs permission and state checks."],["discord.ui.Modal and TextInput","Collect structured text through Discord forms.","Validate text before using it in moderation, tickets, or databases."],["tasks.loop","Runs scheduled async work in the background.","Keep loop bodies short and catch errors so one failure does not stop the task."]]}'
+  }
+/>
 
 ## 8. Common Mistakes
 

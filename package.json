@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": false,
   "description": "Modern discord.py 2.x Components learning ecosystem with academy lessons, production architecture, references, and verified Python examples.",
-  "author": "Adhi (@itzaqdhi)",
+  "author": "itzadhi",
   "license": "MIT",
   "type": "module",
   "scripts": {
