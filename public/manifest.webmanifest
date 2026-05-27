@@ -1,0 +1,14 @@
+{
+  "name": "Discord.py Components V2 Guide",
+  "short_name": "discordpy-components-v2-guide",
+  "theme_color": "#030305",
+  "background_color": "#030305",
+  "display": "standalone",
+  "icons": [
+    {
+      "src": "/brand/adhi-logo.jpeg",
+      "sizes": "512x512",
+      "type": "image/jpeg"
+    }
+  ]
+}

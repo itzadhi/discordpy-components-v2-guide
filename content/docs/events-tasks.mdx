@@ -1,0 +1,155 @@
+---
+title: "Events and Tasks: on_ready, on_member_join, on_message, voice_state_update, role_update, message_delete, channel_create, presence_update, and tasks.loop"
+description: "Use gateway events and background loops without blocking the event loop."
+section: "Interaction Systems"
+order: 12
+tags: ["discord.py 2.x", "Interaction Systems", "Python", "modern-discord-api"]
+---
+
+<Callout title="Credits and source posture">
+  This lesson is part of Discord.py Components V2 Guide, created for Adhi (@itzaqdhi). It teaches modern Discord API
+  practices only and treats outdated snippets as migration examples, not as recommended code.
+</Callout>
+
+## 1. What Is It?
+
+Events are realtime signals, and tasks are scheduled async jobs that run alongside interactions.
+
+In human terms: a Discord bot is a small service waiting for Discord to say, "someone did something." Your job is to understand that signal, make a safe decision, and send back a response that feels instant and clear.
+
+## 2. Why Does It Exist?
+
+Production bots use events for automation and tasks for cleanup, reminders, sync, metrics, and cache refresh.
+
+This exists because real communities need predictable interfaces. Buttons, menus, modals, slash commands, events, databases, and services each remove a different kind of confusion from the user and the developer.
+
+## 3. How Discord Handles It Internally
+
+Gateway intents decide which events arrive; tasks.loop schedules coroutines on the bot's event loop.
+
+The important production rule is timing: acknowledge interactions quickly, defer when work may take longer, and keep secrets, permissions, and persistent state outside the visible component payload.
+
+## 4. Visual Explanation
+
+<MermaidDiagram
+  title="Events and Tasks: on_ready, on_member_join, on_message, voice_state_update, role_update, message_delete, channel_create, presence_update, and tasks.loop flow"
+  chart={
+    'flowchart LR\n    A["Gateway"] --> B["Callback"]\n    B --> C["Task"]\n    C --> D["Modern response"]\n    D --> E["Logs, metrics, and next action"]'
+  }
+/>
+
+<ReferenceTable data='{"headers":["Layer","What happens","Production question"],"rows":[["Discord layer","Receives Gateway and sends an async interaction or gateway event.","Which intent, permission, or response deadline applies?"],["Python layer","The event loop dispatches Callback without blocking other callbacks.","Are you awaiting I/O instead of blocking the loop?"],["Service layer","Runs Task with persistence, logging, and clear errors.","What survives restart and what must be re-registered?"]]}' />
+
+## 5. Beginner Example
+
+This beginner example intentionally keeps the moving parts visible.
+
+```py
+import discord
+from discord import app_commands
+
+@app_commands.command(name="learn", description="Open a modern Discord learning panel")
+async def learn(interaction: discord.Interaction):
+    await interaction.response.send_message(
+        "Start with the idea, then the Discord API behavior, then the code.",
+        ephemeral=True,
+    )
+```
+
+Line-by-line mindset: identify the user action, create the smallest valid response, and keep state either in Discord's interaction payload or in a service you control.
+
+## 6. Intermediate Example
+
+The intermediate version separates routing from the feature logic.
+
+```py
+from dataclasses import dataclass
+
+@dataclass(frozen=True)
+class Route:
+    namespace: str
+    action: str
+    state: str = "default"
+
+def parse_route(custom_id: str) -> Route:
+    namespace, action, *rest = custom_id.split(":")
+    return Route(namespace=namespace, action=action, state=rest[0] if rest else "default")
+
+async def route_interaction(custom_id: str) -> dict[str, str | bool]:
+    route = parse_route(custom_id)
+    if route.namespace != "academy":
+        return {"ok": False, "reason": "Unknown component namespace"}
+    return {"ok": True, "action": route.action, "state": route.state}
+```
+
+This is the point where beginners become maintainers: the code is still small, but each file has a reason to exist.
+
+## 7. Production Example
+
+Production code adds validation, persistence, logging, and recovery boundaries.
+
+```py
+import time
+import discord
+
+async def handle_production_action(interaction: discord.Interaction) -> None:
+    started_at = time.perf_counter()
+
+    if interaction.guild is None:
+        await interaction.response.send_message("Use this inside a server.", ephemeral=True)
+        return
+
+    permissions = interaction.user.guild_permissions if isinstance(interaction.user, discord.Member) else None
+    if permissions is None or not permissions.manage_guild:
+        await interaction.response.send_message("You do not have permission for this action.", ephemeral=True)
+        return
+
+    await interaction.response.defer(ephemeral=True)
+    await audit_log.write(
+        guild_id=interaction.guild.id,
+        user_id=interaction.user.id,
+        custom_id=interaction.data.get("custom_id") if interaction.data else "unknown",
+        latency_ms=round((time.perf_counter() - started_at) * 1000),
+    )
+    await interaction.followup.send("Action completed and recorded safely.", ephemeral=True)
+```
+
+Large bots use this shape because one slow database call, one missing permission check, or one reused custom ID can break thousands of interactions.
+
+## 8. Common Mistakes
+
+<OutdatedWarning
+  oldWay="Using discord.py 1.x patterns, prefix-first commands, blocking database calls, or unregistered views as the default architecture."
+  why="Those approaches either predate modern interactions or hide important Discord API behavior that matters for permissions, timing, routing, and scale."
+  modern="Use discord.py 2.x app_commands, cogs, discord.ui views and modals, persistent view registration, async database drivers, and service layers."
+/>
+
+- Forgetting that component custom IDs are user-controlled routing inputs.
+- Treating ephemeral responses as private storage instead of temporary user-facing messages.
+- Doing slow database or API work before acknowledging an interaction.
+- Copying old snippets without checking library version and Discord API behavior.
+
+## 9. Best Practices
+
+- Name custom IDs with a namespace, action, and short state key.
+- Keep handlers thin; put business decisions in services.
+- Register commands and persistent UI intentionally during startup or deployment.
+- Prefer explicit permission checks over assumptions based on channel visibility.
+- Keep examples readable, then show the production boundary separately.
+
+## 10. Performance Notes
+
+Cache data that is safe to cache, but never confuse cache with source of truth. Use deferred responses for slow work, batch database reads when possible, and avoid running heavy computation inside the interaction callback itself.
+
+## 11. Security Notes
+
+Never store tokens in Git. Validate user, guild, channel, role, and message state before taking action. For component systems, assume a user can click an old message after a deploy and design the handler to re-check current permissions.
+
+## 12. Challenge Section
+
+1. Draw the lifecycle for this topic from user action to final response.
+2. Add one permission guard and one logging statement to the beginner example.
+3. Convert the intermediate example into a service with tests or validation.
+4. Explain what would break if this feature were used by 10,000 guilds.
+
+<ComparisonTabs data='[{"label":"Beginner","value":"beginner","body":"Focus on the user story: what the person clicks, selects, submits, or expects from Events and Tasks: on_ready, on_member_join, on_message, voice_state_update, role_update, message_delete, channel_create, presence_update, and tasks.loop."},{"label":"Intermediate","value":"intermediate","body":"Move repeated behavior into typed handlers, services, validation helpers, and small modules."},{"label":"Production","value":"production","body":"Add persistence, permission guards, observability, rate-limit awareness, and deployment-safe boundaries."}]' />
